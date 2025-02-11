@@ -28,10 +28,12 @@ runs:
   using: composite
   steps:
     - id: install-deps
+      shell: bash -el {0}
       run: |
         conda install clang-format==${{ inputs.version }}.*
 
     - id: run
+      shell: bash -el {0}
       run: |
         version='${{ inputs.version }}'
         style='${{ inputs.style }}'
@@ -69,7 +71,6 @@ runs:
         output=$(echo "$output" | sed 's/%/%25/g; s/\n/%0A/g; s/\r/%0D/g')
 
         echo "diff=$output" >> "$GITHUB_OUTPUT"
-      shell: bash
 
 branding:
   icon: star
