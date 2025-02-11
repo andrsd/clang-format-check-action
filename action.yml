@@ -1,0 +1,76 @@
+# Rewrite of https://github.com/egor-tensin/clang-format/
+#
+# Changes:
+# - uses bash instead of power shell
+# - assumes miniconda
+
+name: clang-format (w/ diff)
+description: clang-format all C/C++ files in the project, and show the diff
+
+inputs:
+  version:
+    description: clang-format version
+    required: false
+    default: 14
+  style:
+    description: clang-format -style parameter value
+    required: false
+    default: file
+  exclude:
+    description: ":-separated list of excluded files and directories"
+    required: false
+outputs:
+  diff:
+    description: diff between the actual and the formatted code
+    value: "${{ steps.run.outputs.diff }}"
+
+runs:
+  using: composite
+  steps:
+    - id: install-deps
+      run: |
+        conda install clang-format==${{ inputs.version }}.*
+
+    - id: run
+      run: |
+        version='${{ inputs.version }}'
+        style='${{ inputs.style }}'
+        exclude='${{ inputs.exclude }}'
+
+        if command -v python3 &> /dev/null; then
+            python="python3"
+        elif command -v py &> /dev/null; then
+            python="py -3"
+        elif command -v python &> /dev/null; then
+            python="python"
+        else
+            echo "::error :: This action requires Python 3.6 or later. We couldn't find a Python installation in this environment."
+            exit 1
+        fi
+
+        cmake_common_version="v3.4"
+        script_name="project-clang-format.py"
+        script_path="${{ github.workspace }}/$script_name"
+        download_url="https://raw.githubusercontent.com/egor-tensin/cmake-common/$cmake_common_version/tools/$script_name"
+
+        curl -s -o "$script_path" "$download_url"
+
+        clang_format="clang-format"
+        [ -n "$version" ] && clang_format+="-${version}"
+
+        IFS=':' read -r -a exclude_list <<< "$exclude"
+        exclude_args=()
+        for item in "${exclude_list[@]}"; do
+          exclude_args+=(--exclude "$item")
+        done
+
+        output=$($python "$script_path" --clang-format "$clang_format" --style "$style" "${exclude_args[@]}")
+
+        output=$(echo "$output" | sed 's/%/%25/g; s/\n/%0A/g; s/\r/%0D/g')
+
+        echo "diff=$output" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+branding:
+  icon: star
+  color: green
